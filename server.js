@@ -32,7 +32,7 @@ async function initDb() {
   if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET || !process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
     throw new Error("Configure DATABASE_URL, SESSION_SECRET, ADMIN_EMAIL e ADMIN_PASSWORD nas variáveis do Railway.");
   }
-  await pool.query(\`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS services (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, price NUMERIC(10,2) NOT NULL CHECK(price >= 0), active BOOLEAN NOT NULL DEFAULT TRUE
     );
@@ -47,7 +47,7 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS admins (
       id SERIAL PRIMARY KEY, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL
     );
-  \`);
+  `);
   const defaults = [["Corte",30],["Barba",25],["Corte + Barba",55]];
   for (const [name,price] of defaults) {
     await pool.query("INSERT INTO services(name,price) SELECT $1,$2 WHERE NOT EXISTS (SELECT 1 FROM services WHERE name=$1)",[name,price]);
@@ -57,21 +57,21 @@ async function initDb() {
   await pool.query("INSERT INTO admins(email,password_hash) VALUES($1,$2) ON CONFLICT(email) DO NOTHING",[email,hash]);
 }
 
-const publicPage = () => \`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Zayothe Barber</title><style>
+const publicPage = () => `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Zayothe Barber</title><style>
 *{box-sizing:border-box;margin:0;padding:0}body{background:#101010;color:#fff;font-family:Arial,sans-serif}header{padding:25px;text-align:center;border-bottom:1px solid #80652e}.logo{color:#d6ad58;font-size:30px;font-weight:900;letter-spacing:4px}.hero{min-height:400px;padding:80px 20px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,#171717,#090909)}.hero h1{font-size:42px;margin-bottom:15px}.gold{color:#d6ad58}.hero p{color:#bbb;margin-bottom:28px}.btn{background:#d6ad58;color:#111;border:0;padding:15px 25px;font-weight:bold;cursor:pointer;border-radius:5px;text-decoration:none}section{padding:45px 20px;max-width:900px;margin:auto}h2{text-align:center;margin-bottom:30px}.services{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:15px}.service{border:1px solid #80652e;padding:25px;border-radius:8px;background:#191919;text-align:center}.service h3{margin-bottom:12px}.price{color:#d6ad58;font-size:25px;font-weight:bold}form{max-width:500px;margin:auto;display:grid;gap:15px}input,select{padding:15px;background:#202020;border:1px solid #555;color:white;border-radius:5px;width:100%}footer{text-align:center;padding:25px;border-top:1px solid #80652e;color:#aaa}.muted{color:#bbb;text-align:center}
 </style></head><body><header><div class="logo">ZAYOTHE BARBER</div></header>
 <div class="hero"><h1>O teu estilo.<br><span class="gold">A tua identidade.</span></h1><p>Precisão, atitude e qualidade em cada corte.</p><a href="#agendar" class="btn">AGENDAR HORÁRIO</a></div>
 <section><h2>NOSSOS <span class="gold">SERVIÇOS</span></h2><div class="services" id="services"><p class="muted">Carregando serviços...</p></div></section>
-<section id="agendar"><h2>AGENDE O TEU <span class="gold">HORÁRIO</span></h2><form id="booking"><input name="name" placeholder="O teu nome" maxlength="100" required><input name="phone" placeholder="WhatsApp com DDD" maxlength="30" required><select name="service" required><option value="">Escolhe o serviço</option></select><input type="date" name="date" required><select name="time" required><option value="">Escolhe o horário</option>\${Array.from({length:20},(_,i)=>{const h=8+Math.floor(i/2),m=i%2===0?"00":"30";return \`<option>\${String(h).padStart(2,"0")}:\${m}</option>\`;}).join("")}</select><button class="btn" type="submit">SOLICITAR AGENDAMENTO</button><p id="message" class="muted"></p></form></section>
+<section id="agendar"><h2>AGENDE O TEU <span class="gold">HORÁRIO</span></h2><form id="booking"><input name="name" placeholder="O teu nome" maxlength="100" required><input name="phone" placeholder="WhatsApp com DDD" maxlength="30" required><select name="service" required><option value="">Escolhe o serviço</option></select><input type="date" name="date" required><select name="time" required><option value="">Escolhe o horário</option>${Array.from({length:20},(_,i)=>{const h=8+Math.floor(i/2),m=i%2===0?"00":"30";return `<option>${String(h).padStart(2,"0")}:${m}</option>`;}).join("")}</select><button class="btn" type="submit">SOLICITAR AGENDAMENTO</button><p id="message" class="muted"></p></form></section>
 <footer>ZAYOTHE BARBER © 2026<br>ESTILO • PRECISÃO • ATITUDE</footer>
 <script>
 const $=s=>document.querySelector(s);const date=$('[name=date]');date.min=new Date().toLocaleDateString('en-CA');
 async function loadServices(){const list=await fetch('/api/services').then(r=>r.json());$('#services').innerHTML=list.map(s=>'<div class="service"><h3>'+s.name+'</h3><div class="price">R$ '+Number(s.price).toFixed(2).replace('.',',')+'</div></div>').join('');$('[name=service]').innerHTML='<option value="">Escolhe o serviço</option>'+list.map(s=>'<option value="'+s.id+'">'+s.name+' - R$ '+Number(s.price).toFixed(2).replace('.',',')+'</option>').join('')}
 loadServices().catch(()=>$('#services').textContent='Não foi possível carregar os serviços.');
 $('#booking').addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.target);const data={name:f.get('name'),phone:f.get('phone'),serviceId:f.get('service'),date:f.get('date'),time:f.get('time')};const msg=$('#message');msg.textContent='Enviando...';try{const r=await fetch('/api/appointments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const out=await r.json();if(!r.ok)throw Error(out.error||'Não foi possível agendar.');msg.textContent='Solicitação recebida! Aguarde a confirmação da barbearia.';e.target.reset();date.min=new Date().toLocaleDateString('en-CA')}catch(err){msg.textContent=err.message}});
-</script></body></html>\`;
+</script></body></html>`;
 
-const adminPage = () => \`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Painel | Zayothe Barber</title><style>
+const adminPage = () => `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Painel | Zayothe Barber</title><style>
 *{box-sizing:border-box}body{margin:0;background:#101010;color:#f5f5f5;font:15px Arial}header{padding:20px;background:#191919;border-bottom:1px solid #80652e;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.gold{color:#d6ad58}main{max-width:1100px;margin:25px auto;padding:0 15px}.panel{background:#1a1a1a;border:1px solid #383838;border-radius:10px;padding:18px;margin-bottom:18px}input,select,button{padding:12px;border-radius:6px;border:1px solid #555;background:#222;color:#fff}button{background:#d6ad58;color:#111;font-weight:bold;border:0;cursor:pointer}form{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}form input,form select{flex:1;min-width:130px}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}.stat{background:#242424;padding:15px;border-radius:8px}.stat b{display:block;font-size:25px;color:#d6ad58;margin-top:8px}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:680px}td,th{text-align:left;padding:12px;border-bottom:1px solid #383838}th{color:#d6ad58}.actions{display:flex;gap:6px;flex-wrap:wrap}.actions button{padding:8px}.danger{background:#a33;color:white}.hidden{display:none}.hint{color:#aaa;font-size:13px}
 </style></head><body><header><strong class="gold">ZAYOTHE BARBER · ADMIN</strong><button id="logout" class="hidden">Sair</button></header><main>
 <section id="login" class="panel"><h2>Entrar no painel</h2><p class="hint">Acesso restrito ao administrador.</p><form id="loginForm" style="max-width:420px"><input name="email" type="email" placeholder="E-mail" autocomplete="username" required><input name="password" type="password" placeholder="Senha" autocomplete="current-password" required><button>Entrar</button></form><p id="loginMsg" class="gold"></p></section>
@@ -88,7 +88,7 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;',
 $('#appointments').onclick=async e=>{const b=e.target.closest('button');if(!b)return;try{await api('/api/admin/appointments/'+b.dataset.id,{method:'PATCH',body:JSON.stringify({status:b.dataset.status})});load()}catch(err){alert(err.message)}};
 $('#services').onsubmit=async e=>{if(!e.target.matches('form'))return;e.preventDefault();const f=new FormData(e.target);try{await api('/api/admin/services/'+e.target.dataset.service,{method:'PATCH',body:JSON.stringify({name:f.get('name'),price:f.get('price'),active:f.get('active')==='true'})});load()}catch(err){alert(err.message)}};
 api('/api/admin/me').then(()=>{show(true);load()}).catch(()=>show(false));
-</script></body></html>\`;
+</script></body></html>`;
 
 app.get("/", (req,res)=>res.type("html").send(publicPage()));
 app.get("/admin", (req,res)=>res.type("html").send(adminPage()));
